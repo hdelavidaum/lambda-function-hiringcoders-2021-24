@@ -137,6 +137,10 @@ exports.handler = async function (event, context, callback) {
             });
             break;
 
+        case event.httpMethod === "PATCH" &&
+            event.resource === leadResource &&
+            !!event.pathParameters.id:
+
         default:
             response = makeResponse(400, {
                 message:
