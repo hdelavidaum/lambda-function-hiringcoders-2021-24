@@ -13,15 +13,31 @@ const leadResource = "/leads/{id}";
 // const clientsPath = "/clients";
 // const prospectsPath = "/prospects";
 
-function getLeads() {
+const generateUpdateQuery = (fields) => {
+    let exp = {
+        UpdateExpression: "set",
+        ExpressionAttributeNames: {},
+        ExpressionAttributeValues: {},
+    };
+
+    Object.entries(fields).forEach(([key, item]) => {
+        exp.UpdateExpression += ` #${key} = :${key},`;
+        exp.ExpressionAttributeNames[`#${key}`] = key;
+        exp.ExpressionAttributeValues[`:${key}`] = item;
+    });
+    exp.UpdateExpression = exp.UpdateExpression.slice(0, -1);
+    return exp;
+};
+
+const getLeads = () => {
     const params = {
         TableName: tableName,
     };
 
     return ddb.scan(params).promise();
-}
+};
 
-function getLeadByEmail(email) {
+const getLeadByEmail = (email) => {
     const params = {
         TableName: tableName,
         Key: {
@@ -30,9 +46,9 @@ function getLeadByEmail(email) {
     };
 
     return ddb.get(params).promise();
-}
+};
 
-function putLead(requestBody) {
+const putLead = (requestBody) => {
     const today = new Date();
 
     const params = {
@@ -49,26 +65,27 @@ function putLead(requestBody) {
     };
 
     return ddb.put(params).promise();
-}
+};
 
-function updateLead(key, requestBody) {
+const updateLead = (key, requestBody) => {
     const today = new Date();
+    const queryToUpdate = generateUpdateQuery({
+        ...requestBody,
+        lastModified: today.toLocaleDateString("en-CA"),
+    });
 
     const params = {
+        ...queryToUpdate,
         TableName: tableName,
         Key: {
             userEmail: key,
         },
-        Item: {
-            ...requestBody,
-            lastModified: today.toLocaleDateString("en-CA"),
-        },
     };
 
     return ddb.update(params).promise();
-}
+};
 
-function makeResponse(statusCode, body) {
+const makeResponse = (statusCode, body) => {
     return {
         statusCode: statusCode,
         headers: {
@@ -76,7 +93,7 @@ function makeResponse(statusCode, body) {
         },
         body: JSON.stringify(body),
     };
-}
+};
 
 exports.handler = async function (event, context, callback) {
     let reqBody;
@@ -121,7 +138,10 @@ exports.handler = async function (event, context, callback) {
             break;
 
         default:
-            response = makeResponse(400, { message: "" });
+            response = makeResponse(400, {
+                message:
+                    "HTTP Method unavailable, please contact our support team if it persists (:",
+            });
             break;
     }
 
