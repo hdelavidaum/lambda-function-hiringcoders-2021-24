@@ -58,7 +58,7 @@ const putLead = (requestBody) => {
             userType: requestBody.userType,
             clientSince: requestBody.clientSince,
             lastModified: requestBody.lastModified,
-            createdAt: today.toLocaleDateString("en-CA"),
+            createdAt: today.toISOString(),
             phone: requestBody.phone,
             name: requestBody.name,
         },
@@ -71,7 +71,7 @@ const updateLead = (key, requestBody) => {
     const today = new Date();
     const queryToUpdate = generateUpdateQuery({
         ...requestBody,
-        lastModified: today.toLocaleDateString("en-CA"),
+        lastModified: today.toISOString(),
     });
 
     const params = {
@@ -142,9 +142,8 @@ exports.handler = async function (event, context, callback) {
             await updateLead(event.pathParameters.id, reqBody);
 
             response = makeResponse(200, {
-                message: `Lead "${
-                    event.pathParameters.id
-                }" has been updated this data: ${Object.values(reqBody)}`,
+                message: `Lead "${event.pathParameters.id
+                    }" has been updated this data: ${Object.values(reqBody)}`,
             });
             break;
 
