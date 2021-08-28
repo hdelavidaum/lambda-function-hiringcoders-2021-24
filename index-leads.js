@@ -85,6 +85,17 @@ const updateLead = (key, requestBody) => {
     return ddb.update(params).promise();
 };
 
+const deleteLead = (key) => {
+    const params = {
+        TableName: tableName,
+        Key: {
+            userEmail: key,
+        },
+    };
+
+    return ddb.delete(params).promise();
+};
+
 const makeResponse = (statusCode, body) => {
     return {
         statusCode: statusCode,
@@ -137,9 +148,14 @@ exports.handler = async function (event, context, callback) {
             });
             break;
 
-        case event.httpMethod === "PATCH" &&
+        case event.httpMethod === "DELETE" &&
             event.resource === leadResource &&
             !!event.pathParameters.id:
+            await deleteLead(event.pathParameters.id);
+            response = makeResponse(200, {
+                message: `Lead '${event.pathParameters.id}' has been permanently deleted from database. ):`,
+            });
+            break;
 
         default:
             response = makeResponse(400, {
