@@ -5,13 +5,7 @@ AWS.config.update({
 
 const ddb = new AWS.DynamoDB.DocumentClient();
 
-const tableName = "hiringcoders-2021-24-corebiz";
-
-const leadsResource = "/leads";
-const leadResource = "/leads/{id}";
-
-// const clientsPath = "/clients";
-// const prospectsPath = "/prospects";
+const tableName = "hc2-24-corebiz";
 
 const generateUpdateQuery = (fields) => {
     let exp = {
@@ -37,11 +31,11 @@ const getLeads = () => {
     return ddb.scan(params).promise();
 };
 
-const getLeadByEmail = (email) => {
+const getLeadById = (uuid) => {
     const params = {
         TableName: tableName,
         Key: {
-            userEmail: email,
+            id: uuid,
         },
     };
 
@@ -50,15 +44,18 @@ const getLeadByEmail = (email) => {
 
 const putLead = (requestBody) => {
     const today = new Date();
+    const isClient =
+        requestBody.userType === "client" ? today.toISOString() : "";
 
     const params = {
         TableName: tableName,
         Item: {
+            id: requestBody.id,
             userEmail: requestBody.userEmail,
-            userType: requestBody.userType,
-            clientSince: requestBody.clientSince,
-            lastModified: requestBody.lastModified,
-            createdAt: today.toLocaleDateString("en-CA"),
+            userType: requestBody.userType ?? "prospect",
+            clientSince: isClient,
+            lastModified: today.toISOString(),
+            createdAt: today.toISOString(),
             phone: requestBody.phone,
             name: requestBody.name,
         },
@@ -67,30 +64,34 @@ const putLead = (requestBody) => {
     return ddb.put(params).promise();
 };
 
-const updateLead = (key, requestBody) => {
+const updateLead = (uuid, requestBody) => {
     const today = new Date();
+
+    if (!!requestBody.id) delete requestBody.id;
+
     const queryToUpdate = generateUpdateQuery({
         ...requestBody,
-        lastModified: today.toLocaleDateString("en-CA"),
+        lastModified: today.toISOString(),
     });
 
     const params = {
         ...queryToUpdate,
         TableName: tableName,
         Key: {
-            userEmail: key,
+            id: uuid,
         },
     };
 
     return ddb.update(params).promise();
 };
 
-const deleteLead = (key) => {
+const deleteLead = (uuid) => {
     const params = {
         TableName: tableName,
         Key: {
-            userEmail: key,
+            id: uuid,
         },
+        ReturnValues: "ALL_OLD",
     };
 
     return ddb.delete(params).promise();
@@ -107,60 +108,98 @@ const makeResponse = (statusCode, body) => {
 };
 
 exports.handler = async function (event, context, callback) {
-    let reqBody;
+    let reqBody = JSON.parse(event.body);
     let response;
 
-    switch (true) {
-        // PATH /leads
-        case event.httpMethod === "GET" && event.path === leadsResource:
-            const leads = await getLeads();
-            response = makeResponse(200, leads);
-            break;
+    const { userEmail, phone, name } = reqBody;
 
-        case event.httpMethod === "POST" && event.path === leadsResource:
-            reqBody = JSON.parse(event.body);
-            await putLead(reqBody);
+    switch (event.httpMethod) {
+        case "GET":
+            if (!!event.pathParameters) {
+                try {
+                    const lead = await getLeadById(
+                        event.pathParameters.id
+                    ).then((data) => data.Item);
+                    response = makeResponse(200, lead);
+                    break;
+                } catch (error) {
+                    response = makeResponse(400, {
+                        message: error.message,
+                    });
+                    break;
+                }
+            }
+            try {
+                const leads = await getLeads();
+                response = makeResponse(200, leads);
+                break;
+            } catch (error) {
+                response = makeResponse(400, {
+                    message: error.message,
+                });
+                break;
+            }
 
-            response = makeResponse(200, {
-                message: `Lead with e-mail ${reqBody.userEmail} created with success`,
-            });
-            break;
+        case "POST":
+            if (!userEmail || !phone || !name) {
+                response = makeResponse(422, {
+                    message: `Lead missing required properties for creation on database`,
+                });
+                break;
+            }
 
-        case event.httpMethod === "GET" &&
-            event.resource === leadResource &&
-            !!event.pathParameters.id:
-            const lead = await getLeadByEmail(event.pathParameters.id).then(
-                (data) => data.Item
-            );
-            response = makeResponse(200, lead);
-            break;
+            try {
+                await putLead({
+                    ...reqBody,
+                    id: event.requestContext.requestId,
+                });
 
-        case event.httpMethod === "PATCH" &&
-            event.resource === leadResource &&
-            !!event.pathParameters.id:
-            reqBody = JSON.parse(event.body);
-            await updateLead(event.pathParameters.id, reqBody);
+                response = makeResponse(200, {
+                    message: `Lead created with ID ${event.requestContext.requestId}`,
+                });
+                break;
+            } catch (error) {
+                response = makeResponse(400, {
+                    message: error.message,
+                });
+                break;
+            }
 
-            response = makeResponse(200, {
-                message: `Lead "${
-                    event.pathParameters.id
-                }" has been updated this data: ${Object.values(reqBody)}`,
-            });
-            break;
+        case "PATCH":
+            try {
+                await updateLead(event.pathParameters.id, reqBody);
 
-        case event.httpMethod === "DELETE" &&
-            event.resource === leadResource &&
-            !!event.pathParameters.id:
-            await deleteLead(event.pathParameters.id);
-            response = makeResponse(200, {
-                message: `Lead '${event.pathParameters.id}' has been permanently deleted from database. ):`,
-            });
-            break;
+                response = makeResponse(200, {
+                    message: `Lead ID ${
+                        event.pathParameters.id
+                    } has been updated this data: ${Object.values(reqBody)}`,
+                });
+                break;
+            } catch (error) {
+                response = makeResponse(400, {
+                    message: error.message,
+                });
+                break;
+            }
+
+        case "DELETE":
+            try {
+                await deleteLead(event.pathParameters.id);
+                response = makeResponse(200, {
+                    message: `Lead ID ${event.pathParameters.id} has been permanently deleted from database.`,
+                });
+                break;
+            } catch (error) {
+                response = makeResponse(400, {
+                    message: error.message,
+                });
+                break;
+            }
 
         default:
             response = makeResponse(400, {
                 message:
-                    "HTTP Method unavailable, please contact our support team if it persists (:",
+                    "HTTP Method unavailable, please contact our support team if it persists.",
             });
             break;
     }
