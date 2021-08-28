@@ -119,7 +119,36 @@ exports.handler = async function (event, context, callback) {
 
         case event.httpMethod === "POST" && event.path === leadsResource:
             reqBody = JSON.parse(event.body);
-            await putLead(reqBody);
+
+            const { userEmail, phone, name } = reqBody;
+
+            if (!userEmail || !phone || !name) {
+                response = makeResponse(422, {
+                    message: `Lead missing required properties for creation on database`,
+                });
+                break;
+            }
+
+            if (await getLeadByEmail(userEmail)) {
+                response = makeResponse(409, {
+                    message: `Lead with given e-mail ${userEmail} already exists, use another route to modify it`,
+                });
+                break;
+            }
+
+            const currentDate = new Date.toISOString();
+
+            const newLead = {
+                userEmail,
+                phone,
+                name,
+                userType: "prospect",
+                createdAt: currentDate,
+                clientSince: "null",
+                lastModified: currentDate
+            }
+
+            await putLead(newLead);
 
             response = makeResponse(200, {
                 message: `Lead with e-mail ${reqBody.userEmail} created with success`,
