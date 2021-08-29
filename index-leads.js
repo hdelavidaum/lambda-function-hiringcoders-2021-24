@@ -67,8 +67,6 @@ const putLead = (requestBody) => {
 const updateLead = (uuid, requestBody) => {
     const today = new Date();
 
-    if (!!requestBody.id) delete requestBody.id;
-
     const queryToUpdate = generateUpdateQuery({
         ...requestBody,
         lastModified: today.toISOString(),
@@ -80,6 +78,7 @@ const updateLead = (uuid, requestBody) => {
         Key: {
             id: uuid,
         },
+        ReturnValues: "ALL_NEW",
     };
 
     return ddb.update(params).promise();
@@ -111,8 +110,6 @@ exports.handler = async function (event, context, callback) {
     let reqBody = JSON.parse(event.body);
     let response;
 
-    const { userEmail, phone, name } = reqBody;
-
     switch (event.httpMethod) {
         case "GET":
             if (!!event.pathParameters) {
@@ -141,6 +138,8 @@ exports.handler = async function (event, context, callback) {
             }
 
         case "POST":
+            const { userEmail, phone, name } = reqBody;
+
             if (!userEmail || !phone || !name) {
                 response = makeResponse(422, {
                     message: `Lead missing required properties for creation on database`,
@@ -156,6 +155,9 @@ exports.handler = async function (event, context, callback) {
 
                 response = makeResponse(200, {
                     message: `Lead created with ID ${event.requestContext.requestId}`,
+                    data: {
+                        id: event.requestContext.requestId,
+                    },
                 });
                 break;
             } catch (error) {
@@ -167,12 +169,16 @@ exports.handler = async function (event, context, callback) {
 
         case "PATCH":
             try {
-                await updateLead(event.pathParameters.id, reqBody);
+                const updatedLead = await updateLead(
+                    event.pathParameters.id,
+                    reqBody
+                ).then((data) => data.Attributes);
 
                 response = makeResponse(200, {
                     message: `Lead ID ${
                         event.pathParameters.id
                     } has been updated this data: ${Object.values(reqBody)}`,
+                    data: updatedLead,
                 });
                 break;
             } catch (error) {
@@ -184,9 +190,13 @@ exports.handler = async function (event, context, callback) {
 
         case "DELETE":
             try {
-                await deleteLead(event.pathParameters.id);
+                const deletedUser = await deleteLead(
+                    event.pathParameters.id
+                ).then((data) => data.Attributes);
+
                 response = makeResponse(200, {
                     message: `Lead ID ${event.pathParameters.id} has been permanently deleted from database.`,
+                    data: deletedUser,
                 });
                 break;
             } catch (error) {
