@@ -72,3 +72,81 @@ no body
     }
 }
 ```
+
+### GET /leads/{id}
+
+-   request
+    -   id must be sent at URL;
+
+```
+no body
+```
+
+-   response
+
+```json
+{
+    "userEmail": "teste@email.com",
+    "userType": "prospect",
+    "clientSince": "",
+    "lastModified": "2021-08-29T03:00:53.933Z",
+    "createdAt": "2021-08-29T03:00:53.933Z",
+    "id": "6a97ab86-436c-40c5-ab14-aa3d932474d4",
+    "phone": "+55(41)99999-1111",
+    "name": "Post Client"
+}
+```
+
+### PATCH /leads/{id}
+
+-   request
+    -   id must be sent at URL;
+
+```
+{
+	"userType": "client"
+}
+```
+
+-   response
+
+```json
+{
+    "message": "Lead ID 6a97ab86-436c-40c5-ab14-aa3d932474d4 has been updated this data: client",
+    "data": {
+        "userEmail": "teste@email.com",
+        "userType": "client",
+        "clientSince": "2021-08-29T03:08:30.605Z",
+        "lastModified": "2021-08-29T03:08:30.605Z",
+        "createdAt": "2021-08-29T03:00:53.933Z",
+        "id": "6a97ab86-436c-40c5-ab14-aa3d932474d4",
+        "name": "Post Client",
+        "phone": "+55(41)99999-1111"
+    }
+}
+```
+
+### PATCH /leads/{id}
+
+-   request
+    -   id must be sent at URL;
+
+```
+no body
+```
+
+-   response
+
+```json
+{
+    "message": "Lead ID 0e82c6db-ab49-476c-a813-8bb61ffa3913 has been permanently deleted from database.",
+    "data": {
+        "userEmail": "formatacao_nova@email.com",
+        "userType": "client",
+        "lastModified": "2021-08-29T00:14:17.144Z",
+        "id": "0e82c6db-ab49-476c-a813-8bb61ffa3913",
+        "name": "De novo Depois do Refactor",
+        "phone": "+55(41)88888-7894"
+    }
+}
+```
