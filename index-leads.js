@@ -66,10 +66,13 @@ const putLead = (requestBody) => {
 
 const updateLead = (uuid, requestBody) => {
     const today = new Date();
+    const isClient =
+        requestBody.userType === "client" ? today.toISOString() : "";
 
     const queryToUpdate = generateUpdateQuery({
         ...requestBody,
         lastModified: today.toISOString(),
+        clientSince: isClient,
     });
 
     const params = {
